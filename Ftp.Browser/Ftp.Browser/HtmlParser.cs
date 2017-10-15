@@ -20,6 +20,10 @@ namespace Ftp.Browser
 
         public void ParseHtml(string url)
         {
+
+            //this.IsFtpAccessable(url);
+            //return;
+
             if (!this.IsValidUri(url))
             {
                 this.ParseNextUrl();
@@ -72,7 +76,10 @@ namespace Ftp.Browser
                 }
 
                 Console.WriteLine($"{linkUrl}");
-
+                if (this.IsExcludedFile(linkUrl))
+                {
+                    continue;
+                }
                 if (this.IsVideo(linkUrl))
                 {
                     this.ExtractVideoFileDetails(link);
@@ -89,6 +96,11 @@ namespace Ftp.Browser
 
             this.ParseNextUrl();
             Console.ReadLine();
+        }
+
+        private bool IsExcludedFile(string linkUrl)
+        {
+            throw new NotImplementedException();
         }
 
         private void ParseNextUrl()
@@ -137,21 +149,35 @@ namespace Ftp.Browser
             }
         }
 
-        //FtpWebRequest request = (FtpWebRequest)WebRequest.Create(url);
-        //request.Method = WebRequestMethods.Ftp.ListDirectory;
-        //        request.Credentials = new NetworkCredential(user, password);
-        //request.GetResponse();
-
         private bool IsFtpAccessable(string url)
         {
+            url = "ftp://192.168.0.100/";
             var request = (FtpWebRequest)WebRequest.Create(url);
             request.Timeout = 3000;
-            request.Method = WebRequestMethods.Ftp.ListDirectory; // As per Lasse's comment
+            request.UseBinary = true;
+            request.KeepAlive = true;
+            request.Method = WebRequestMethods.Ftp.ListDirectoryDetails; // As per Lasse's comment
+            request.Credentials = new NetworkCredential("nazmul", "nazmul");
             try
             {
-                using (FtpWebResponse response = (FtpWebResponse)request.GetResponse())
+                using (var response = (FtpWebResponse)request.GetResponse())
                 {
-                    var xx = response.GetResponseStream();
+                    using (var stream = response.GetResponseStream())
+                    {
+                        using (var reader = new StreamReader(stream))
+                        {
+                            var dirs = new List<string>();
+                            var files = new List<string>();
+
+                            var dir = reader.ReadLine();
+                            dirs.Add(dir);
+                            while (!reader.EndOfStream)
+                            {
+                                dir = reader.ReadLine();
+                                dirs.Add(dir);
+                            }
+                        }
+                    }
                     return response.StatusCode == FtpStatusCode.CommandOK;
                 }
             }
@@ -178,16 +204,13 @@ namespace Ftp.Browser
         {
             //url = "ftp://172.16.0.2/Movies/Animation%20Movies/2016/Angry%20Birds%202016/hdtc-tangry.birds16.mkv";
 
-            //var uri = new Uri(url);
-            //if (uri.Scheme != Uri.UriSchemeFtp) return false;
             var extension = Path.GetExtension(url);
             return !string.IsNullOrWhiteSpace(extension) && this._videoExtensions.Contains(extension.ToUpperInvariant());
         }
 
         private bool IsSubtitle(string url)
         {
-            var uri = new Uri(url);
-            if (uri.Scheme != Uri.UriSchemeFtp) return false;
+
             var extension = Path.GetExtension(url);
             return !string.IsNullOrWhiteSpace(extension) && this._subtitlesExtensions.Contains(extension.ToUpperInvariant());
         }
